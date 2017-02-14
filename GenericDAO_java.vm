@@ -4,15 +4,11 @@
  */
 package ${target.javaPackageFromFolder($SRC)};
 
-
 import java.io.IOException;
-import java.sql.SQLException;
+import java.util.ArrayList;
 import java.util.LinkedList;
 import java.util.List;
 
-import org.codehaus.jackson.JsonGenerationException;
-import org.codehaus.jackson.JsonParseException;
-import org.codehaus.jackson.map.JsonMappingException;
 import org.codehaus.jackson.map.ObjectMapper;
 
 import redis.clients.jedis.Jedis;
@@ -31,22 +27,14 @@ import redis.clients.jedis.exceptions.JedisException;
 public abstract class GenericDAO<T> {
 
 	/**
-	 * The DataSource providing the connections
+	 * Nom de l'instance
+	 * 
+	 * @return
 	 */
-	private final JedisPool redisPool;
-
-	/**
-	 * Constructor
-	 */
-	protected GenericDAO() {
-		super();
-		this.redisPool = ClientProvider.getJedisInstance();
-	}
-
 	protected abstract T newInstance();
 
 	/**
-	 * Returns the SQL SELECT REQUEST to be used to retrieve all the occurrences
+	 * Returns the REQUEST to be used to retrieve all the occurrences
 	 * 
 	 * @return
 	 */
@@ -68,188 +56,121 @@ public abstract class GenericDAO<T> {
 	 */
 	protected abstract String getSetValuesForId(T bean);
 
-	// -----------------------------------------------------------------------------------------
-	private JedisPool getConnexion() {
-		return redisPool;
+	/**
+	 * Get connection to Redis
+	 * 
+	 * @return Connection to Redis by Jedis pool
+	 */
+	private JedisPool getConnection() {
+		return ClientProvider.getJedisInstance();
 	}
 
-	// -----------------------------------------------------------------------------------------
-	@SuppressWarnings("unused")
-	private void closeConnexion(JedisPool redisPool) {
-		if (redisPool != null) {
-			try {
-				redisPool.destroy();
-				;
-				redisPool = null;
-			} catch (JedisException e) {
-			}
-		}
-	}
-
-	// -----------------------------------------------------------------------------------------
-	private void closeClient(Jedis client) {
-		if (client != null) {
-			try {
-				client.close();
-				client = null;
-			} catch (JedisException e) {
-			}
-		}
-	}
-
-	// -----------------------------------------------------------------------------------------
 	/**
 	 * Loads the given bean from the database using its primary key The given
-	 * bean is populated from the ResultSet if found
 	 * 
 	 * @param bean
-	 * @return true if found and loaded, false if not foundn
+	 * @return bean if found and loaded, null if not found
 	 */
-
-	@SuppressWarnings("unchecked")
 	protected T doSelect(T bean) {
-		Jedis jedis = null;
-		ObjectMapper mapper = new ObjectMapper();
-
-		try {
-			jedis = getConnexion().getResource();
+		try (Jedis jedis = getConnection().getResource()) {
 			String id = getSetValuesForId(bean);
-			if (jedis.exists(id)) {
-				String beanInJson = jedis.get(id);
-				return (T) mapper.readValue(beanInJson, bean.getClass());
-
+			if (!jedis.exists(id) || !checkId(id)) {
+				throw new RuntimeException("this id doesn't exist or check id's format");
 			}
+			String beanAsJson = jedis.get(id);
+			return jsonToBean(beanAsJson);
 		} catch (Exception e) {
 			throw new RuntimeException(e);
-		} finally {
-			closeClient(jedis);
 		}
-		return null;
 	}
 
-	// -----------------------------------------------------------------------------------------
 	/**
 	 * Returns all the occurrences existing in the database
 	 * 
 	 * @return
 	 */
-
-	@SuppressWarnings("unchecked")
-	protected List<T> doSelectAll(){
-
-		ObjectMapper mapper = new ObjectMapper();
-		List<T> list = new LinkedList<T>();
-		Jedis jedis = null;
-
-		try {
-			jedis = getConnexion().getResource();
-			ScanParams params = new ScanParams();
-			params.match(getSelectAll());
-			ScanResult<String> scanResult = jedis.scan("0", params);
-			List<String> keys = scanResult.getResult();
+	protected List<T> doSelectAll() {
+		try (Jedis jedis = getConnection().getResource()) {
+			List<T> list = new LinkedList<T>();
+			List<String> keys = getAllKeys();
 			for (String key : keys) {
-				String beanInJson = jedis.get(key);
-				T bean = newInstance();
-				bean = (T) mapper.readValue(beanInJson, bean.getClass());
+				String beanAsJson = jedis.get(key);
+				T bean = jsonToBean(beanAsJson);
 				list.add(bean);
 			}
-
+			return list;
 		} catch (Exception e) {
 			throw new RuntimeException(e);
-		} finally {
-			closeClient(jedis);
 		}
-		return list;
 	}
 
-	// -----------------------------------------------------------------------------------------
 	/**
 	 * Inserts the given bean in the database (Redis)
 	 * 
 	 * @param bean
 	 */
-	protected String doInsertIncr(T bean){
-		String result = "KO";
-		ObjectMapper mapper = new ObjectMapper();
-		Jedis jedis = null;
-		try {
-			jedis = getConnexion().getResource();
+	protected boolean doInsertIncr(T bean) {
+		try (Jedis jedis = getConnection().getResource()) {
 			long nextId = autoIncr();
-			setBeanId(bean, (int)nextId);
+			setBeanId(bean, (int) nextId);
 			String id = getSetValuesForId(bean);
-			if (!jedis.exists(id)) {
-				String beanInJson = mapper.writeValueAsString(bean);
-				result = jedis.set(id, beanInJson);
-			} else {
-				throw new RuntimeException("this bean already exist");
+			while (jedis.exists(id)) {
+				nextId = autoIncr();
+				setBeanId(bean, (int) nextId);
+				id = getSetValuesForId(bean);
 			}
+			if (!checkId(id)) {
+				throw new RuntimeException("check id's format");
+			}
+			String beanAsJson = beanAsJson(bean);
+			String result = jedis.set(id, beanAsJson);
+			return "OK".equals(result);
 		} catch (Exception e) {
 			throw new RuntimeException(e);
-		} finally {
-			closeClient(jedis);
 		}
-
-		return result;
 	}
 
-	// -----------------------------------------------------------------------------------------
 	/**
 	 * Inserts the given bean in the database (Redis)
 	 * 
 	 * @param bean
+	 * @return Indicates if the insert is successful
 	 */
-	protected String doInsert(T bean){
-		String result = "KO";
-		ObjectMapper mapper = new ObjectMapper();
-		Jedis jedis = null;
-		try {
-			jedis = getConnexion().getResource();
+	protected boolean doInsert(T bean) {
+		try (Jedis jedis = getConnection().getResource()) {
 			String id = getSetValuesForId(bean);
-			if (!jedis.exists(id)) {
-				String beanInJson = mapper.writeValueAsString(bean);
-				result = jedis.set(id, beanInJson);
-			} else {
-				throw new RuntimeException("this bean already exist");
+			if (jedis.exists(id) || !checkId(id)) {
+				throw new RuntimeException("this bean already exist or check id's format");
 			}
+			String beanAsJson = beanAsJson(bean);
+			String result = jedis.set(id, beanAsJson);
+			return "OK".equals(result);
 		} catch (Exception e) {
 			throw new RuntimeException(e);
-		} finally {
-			closeClient(jedis);
 		}
 
-		return result;
 	}
 
-	// -----------------------------------------------------------------------------------------
 	/**
 	 * Updates the given bean in the database (Redis)
 	 * 
 	 * @param bean
 	 * @return the Redis return code (i.e. the row count affected by the UPDATE
 	 */
-	protected String doUpdate(T bean) {
-		ObjectMapper mapper = new ObjectMapper();
-		String result = "KO";
-		Jedis jedis = null;
-		try {
-			jedis = getConnexion().getResource();
+	protected boolean doUpdate(T bean) {
+		try (Jedis jedis = getConnection().getResource()) {
 			String id = getSetValuesForId(bean);
-			if (jedis.exists(id)) {
-				String beanInJson = mapper.writeValueAsString(bean);
-				result = jedis.set(id, beanInJson);
-			} else {
-				throw new RuntimeException("this bean doesn't exist");
+			if (!jedis.exists(id) || !checkId(id)) {
+				throw new RuntimeException("this bean doesn't exist or check id's format");
 			}
-
+			String beanAsJson = beanAsJson(bean);
+			String result = jedis.set(id, beanAsJson);
+			return "OK".equals(result);
 		} catch (Exception e) {
 			throw new RuntimeException(e);
-		} finally {
-			closeClient(jedis);
 		}
-		return result;
 	}
 
-	// -----------------------------------------------------------------------------------------
 	/**
 	 * Deletes the given bean in the database (Redis)
 	 * 
@@ -258,94 +179,149 @@ public abstract class GenericDAO<T> {
 	 *         operation : 0 or 1 )
 	 */
 	protected long doDelete(T bean) {
-		long result = 0;
-		Jedis jedis = null;
-		try {
-			jedis = getConnexion().getResource();
+		try (Jedis jedis = getConnection().getResource()) {
 			String id = getSetValuesForId(bean);
-			if (jedis.exists(id)) {
-				result = jedis.del(id);
-			} else {
-				throw new RuntimeException("this bean doesn't exist");
+			if (!jedis.exists(id) || !checkId(id)) {
+				throw new RuntimeException("this bean doesn't exist or check id's format");
 			}
+			return jedis.del(id);
 		} catch (JedisException e) {
 			throw new RuntimeException(e);
-		} finally {
-			closeClient(jedis);
 		}
-		return result;
 	}
 
-	// -----------------------------------------------------------------------------------------
 	/**
-	 * Checks if the given bean exists in the database)
+	 * Checks if the given bean exists in the database
 	 * 
 	 * @param bean
 	 * @return
 	 */
 	protected boolean doExists(T bean) {
-		boolean result = false;
-		Jedis jedis = null;
-		try {
-			jedis = getConnexion().getResource();
+		try (Jedis jedis = getConnection().getResource()) {
 			String id = getSetValuesForId(bean);
-			result = jedis.exists(id);
+			return jedis.exists(id);
 		} catch (JedisException e) {
 			throw new RuntimeException(e);
-		} finally {
-			closeClient(jedis);
 		}
-		return result;
 	}
 
-	// -----------------------------------------------------------------------------------------
-	/**
-	 * Counts all the occurrences in the table 
-	 * 
-	 * @return
-	 */
-	protected int doCountAll() {
-
-		int result = 0;
-		Jedis jedis = null;
-		try {
-			jedis = getConnexion().getResource();
-			ScanParams params = new ScanParams();
-			params.match(getSelectAll());
-			ScanResult<String> scanResult = jedis.scan("0", params);
-			List<String> keys = scanResult.getResult();
-			result = keys.size();
-		} catch (JedisException e) {
-			throw new RuntimeException(e);
-		} finally {
-			closeClient(jedis);
-		}
-		return result;
-	}
-
-	// -----------------------------------------------------------------------------------------
 	/**
 	 * Counts all the occurrences in the table
 	 * 
 	 * @return
 	 */
+	protected int doCountAll() {
+		try (Jedis jedis = getConnection().getResource()) {
+			List<String> keys = getAllKeys();
+			return keys.size();
+		} catch (JedisException e) {
+			throw new RuntimeException(e);
+		}
+	}
+
+	/**
+	 * calcul the next value of id
+	 * 
+	 * @return
+	 */
 	protected long autoIncr() {
 		long result = 1L;
-		Jedis jedis = null;
-		try {
-			jedis = getConnexion().getResource();
+		try (Jedis jedis = getConnection().getResource()) {
 			if (jedis.get(getEntity()) != null) {
 				result = jedis.incr(getEntity());
 				return result;
 			}
+			jedis.set(getEntity(), "1");
+			return result;
 		} catch (JedisException e) {
 			throw new RuntimeException(e);
-		} finally {
-			closeClient(jedis);
 		}
-		jedis.set(getEntity(), "1");
-		return result;
 	}
 
 	protected abstract void setBeanId(T bean, Integer id);
+
+	/**
+	 * Returns all keys existing in the database
+	 * 
+	 * @return
+	 */
+	private List<String> getAllKeys() {
+		try (Jedis jedis = getConnection().getResource()) {
+			ScanParams params = new ScanParams();
+			params.match(getSelectAll());
+			String cursor = redis.clients.jedis.ScanParams.SCAN_POINTER_START;
+			boolean cycleIsFinished = false;
+			List<String> results = new ArrayList<String>();
+			while (!cycleIsFinished) {
+				ScanResult<String> scanResult = jedis.scan(cursor, params);
+				List<String> result = scanResult.getResult();
+				for (String res : result) {
+					results.add(res);
+				}
+				cursor = scanResult.getStringCursor();
+				if (cursor.equals("0")) {
+					cycleIsFinished = true;
+				}
+			}
+			return results;
+		} catch (Exception e) {
+			throw new RuntimeException(e);
+		}
+	}
+
+	/**
+	 * 
+	 * check the id format
+	 * 
+	 * @return true if the good format
+	 */
+	private boolean checkId(String id) {
+		String tab[] = id.split(":");
+		Integer number = null;
+		if (tab[1].equals("null") || tab[0].equals("null")) {
+			return false;
+		}
+		number = Integer.parseInt(tab[1]);
+		System.out.println(number);
+		String entity = tab[0].trim();
+		return (getEntity().equals(entity) && !number.equals(null));
+	}
+
+	/**
+	 * 
+	 * serialize bean as Json format
+	 * 
+	 * @param bean
+	 * @return json format of bean
+	 */
+	private String beanAsJson(T bean) {
+		ObjectMapper mapper = new ObjectMapper();
+		try {
+			return mapper.writeValueAsString(bean);
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
+		return null;
+
+	}
+
+	/**
+	 * 
+	 * deserialize bean as Json format
+	 * 
+	 * @param bean
+	 * @return json format of bean
+	 */
+	@SuppressWarnings("unchecked")
+	private T jsonToBean(String json) {
+		T bean = newInstance();
+		ObjectMapper mapper = new ObjectMapper();
+		try {
+			return (T) mapper.readValue(json, bean.getClass());
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
+		return bean;
+	}
+
 }

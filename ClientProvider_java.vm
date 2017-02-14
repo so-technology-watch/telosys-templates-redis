@@ -40,10 +40,10 @@ public class ClientProvider {
 	}
 
 	/**
-	 * Loads the JDBC properties using the class-path to find the file<br>
+	 * Loads the REDIS properties using the class-path to find the file<br>
 	 * 
 	 * @throws RuntimeException
-	 *             if the properties file cannot be found
+	 * if the properties file cannot be found
 	 * @return
 	 */
 	public static Properties loadJdbcPropertiesFromClassPath() {
@@ -58,9 +58,7 @@ public class ClientProvider {
 	private static JedisPool createJedisClient() {
 		Properties env = loadJdbcPropertiesFromClassPath();
 		JedisPool pool = new JedisPool(new JedisPoolConfig(), env.getProperty("redis.hostname"));
-
 		return pool;
-
 	}
 
 	private static Properties loadPropertiesFromClassPath(String fileName) {

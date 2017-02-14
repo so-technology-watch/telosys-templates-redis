@@ -7,14 +7,10 @@
 #set ( $keyFields = $entity.keyAttributes ) 
 ##--------------------------------------------------------------------------------------------------------
 package ${target.javaPackageFromFolder($SRC)};
-import java.io.IOException;
 import java.util.List;
-import org.codehaus.jackson.JsonParseException;
-import org.codehaus.jackson.map.JsonMappingException;
-import org.demo.data.record.CarRecord;
-import org.demo.persistence.CarPersistence;
-import org.demo.persistence.impl.redis.commons.GenericDAO;
+
 import javax.inject.Named;
+import org.demo.persistence.impl.redis.commons.GenericDAO;
 
 #foreach( $import in $java.imports($entity.keyAttributes) )
 import $import;
@@ -26,10 +22,9 @@ import ${ROOT_PKG}.persistence.${entity.name}Persistence;
 @Named("${entity.name}Persistence")
 public class ${entity.name}PersistenceImplRedis extends GenericDAO<$recordClass> implements ${entity.name}Persistence {
 
-private final static String SELECT_ALL = "$uncapitalizedEntityName:*";
-private final static String entity = "$uncapitalizedEntityName";
+    private final static String SELECT_ALL = "$uncapitalizedEntityName:*";
+    private final static String entity = "$uncapitalizedEntityName";
 
-	// ----------------------------------------------------------------------
 	/**
 	 * DAO constructor
 	 */
@@ -37,63 +32,56 @@ private final static String entity = "$uncapitalizedEntityName";
 		super();
 	}
 
-// ---------------------------------------------------------------
 	/**
-	 * Creates a new instance of the bean and populates it with the given
-	 * primary value(s)
+	 * make key in a good format
 	 * 
-	 * @param id;
-	 * @return the new instance
+	 * @param bean;
+	 * @return key  with a good format
 	 */
-
 	@Override
 	protected String getSetValuesForId(${recordClass} bean) {
-		// TODO Auto-generated method stub
 		if (bean != null) {
-			return "$uncapitalizedEntityName:" + bean.getId();
+#foreach( $field in $keyFields )
+#set( $get = ${field.getter}) 
+#end
+			return "$uncapitalizedEntityName:" + bean.$get();
 		}
 		return "";
 	}
 
-	// ---------------------------------------------------------------
 	/**
-	 * Creates a new instance of the bean and populates it with the given
+	 * Creates a new instance of the bean
 	 * primary value(s)
 	 * 
-	 * @param id;
+	 * @param key;
 	 * @return the new instance
 	 */
 	private ${recordClass} newInstanceWithPrimaryKey($fn.argumentsListWithWrapperType($keyFields)) {
 		${recordClass} $uncapitalizedEntityName = new ${recordClass} ();
-        #foreach( $field in $keyFields )
-		#set($id = ${field.name});
-        #end
-		${uncapitalizedEntityName}.setId($id); 
+#foreach( $field in $keyFields )
+        ${uncapitalizedEntityName}.${field.setter}(${field.name}); 
+#end
 		return $uncapitalizedEntityName;
 	}
 
-	// ----------------------------------------------------------------------
 	@Override
 	protected ${recordClass} newInstance() {
 		return new ${recordClass}();
 	}
 
-// ----------------------------------------------------------------------
 	/*
 	 * (non-Javadoc)
 	 * 
 	 * @see interface
 	 */
 	public ${recordClass} findById($fn.argumentsListWithWrapperType($keyFields)){
-		#foreach( $field in $keyFields )
-		#set($id = ${field.name})
-        #end
-		${recordClass}  $uncapitalizedEntityName = newInstanceWithPrimaryKey($id);
-
+#foreach( $field in $keyFields )
+        ${recordClass}  $uncapitalizedEntityName = newInstanceWithPrimaryKey(${field.name});
+#end
+	
 		return super.doSelect($uncapitalizedEntityName);
 	}
 
-	// ----------------------------------------------------------------------
 	/*
 	 * (non-Javadoc)
 	 * 
@@ -104,7 +92,6 @@ private final static String entity = "$uncapitalizedEntityName";
 		return super.doSelectAll();
 	}
 
-	// ----------------------------------------------------------------------
 	/**
 	 * Loads the given bean, it is supposed to contains the primary key value(s)
 	 * in its attribute(s)<br>
@@ -116,89 +103,78 @@ private final static String entity = "$uncapitalizedEntityName";
 		return super.doSelect($uncapitalizedEntityName);
 	}
 
-	// ----------------------------------------------------------------------
 	/**
 	 * Inserts the given bean in the database
 	 * 
 	 */
-	public String insert(${recordClass} $uncapitalizedEntityName){
-		#if ( $entity.hasAutoIncrementedKey() )
-		return super.doInsertIncr($uncapitalizedEntityName);
-		#else
+	public boolean insert(${recordClass} $uncapitalizedEntityName){
+#foreach( $field in $keyFields )
+#if ($field.isAutoIncremented())
+    if(${uncapitalizedEntityName}.${field.getter}() != null)
 		return super.doInsert($uncapitalizedEntityName);
-		#end
+    else
+		return super.doInsertIncr($uncapitalizedEntityName);
+#else
+		return super.doInsert($uncapitalizedEntityName);
+#end
+#end
 	}
 
-// ----------------------------------------------------------------------
 	/*
 	 * (non-Javadoc)
 	 * 
 	 * @see interface
 	 */
 	public ${recordClass} save(${recordClass} $uncapitalizedEntityName){
-
 		if (super.doExists($uncapitalizedEntityName)) {
 			super.doUpdate($uncapitalizedEntityName);
 		} else {
 			insert($uncapitalizedEntityName);
 		}
-		return $uncapitalizedEntityName;
+        return $uncapitalizedEntityName;
 	}
-
-// ----------------------------------------------------------------------
 	/*
 	 * (non-Javadoc)
 	 * 
 	 * @see interface
 	 */
 	public boolean update(${recordClass} $uncapitalizedEntityName){
-
-		String r = super.doUpdate($uncapitalizedEntityName);
-		return r.equals("OK");
+		return super.doUpdate($uncapitalizedEntityName);	
 	}
 
-	// ----------------------------------------------------------------------
 	/*
 	 * (non-Javadoc)
 	 * 
 	 * @see interface
 	 */
 	public ${recordClass} create(${recordClass} $uncapitalizedEntityName){
-
 		insert($uncapitalizedEntityName);
 		return $uncapitalizedEntityName;
 	}
 
-
-	// ----------------------------------------------------------------------
 	/*
 	 * (non-Javadoc)
 	 * 
 	 * @see interface
 	 */
 	public boolean deleteById($fn.argumentsListWithWrapperType($keyFields)) {
-       #foreach( $field in $keyFields )
-		#set($id = ${field.name})
-        #end
-		${recordClass} $uncapitalizedEntityName = newInstanceWithPrimaryKey($id);
+#foreach( $field in $keyFields )
+		${recordClass} $uncapitalizedEntityName = newInstanceWithPrimaryKey($field.name);
+#end
 		long r = super.doDelete($uncapitalizedEntityName);
 		return r > 0L;
 	}
 
-// ----------------------------------------------------------------------
 	/*
 	 * (non-Javadoc)
 	 * 
 	 * @see interface
 	 */
 	public boolean delete(${recordClass} $uncapitalizedEntityName) {
-
 		long r = super.doDelete($uncapitalizedEntityName);
 		return r > 0L;
 	}
 
-
-	// ----------------------------------------------------------------------
 	/**
 	 * Checks the existence of a record in the database using the given primary
 	 * key value(s)
@@ -207,13 +183,13 @@ private final static String entity = "$uncapitalizedEntityName";
 	 */
 	// @Override
 	public boolean exists($fn.argumentsListWithWrapperType($keyFields)) {
-		#foreach( $field in $keyFields )
-		#set($id = ${field.name})
-        #end
-		${recordClass} $uncapitalizedEntityName = newInstanceWithPrimaryKey($id);
+#foreach( $field in $keyFields )
+		${recordClass} $uncapitalizedEntityName = newInstanceWithPrimaryKey($field.name);
+#end
+		
 		return super.doExists($uncapitalizedEntityName);
 	}
-// ----------------------------------------------------------------------
+
 	/**
 	 * Checks the existence of the given bean in the database
 	
@@ -246,10 +222,9 @@ private final static String entity = "$uncapitalizedEntityName";
 	}
 	@Override
 	protected void setBeanId(${recordClass} $uncapitalizedEntityName, $fn.argumentsListWithWrapperType($keyFields)) {
-       #foreach( $field in $keyFields )
-		#set($id = ${field.name})
-        #end
-		${uncapitalizedEntityName}.setId((int) $id);
+#foreach( $field in $keyFields )
+			${uncapitalizedEntityName}.${field.setter}((int) $field.name);
+#end
 	}
 
 
