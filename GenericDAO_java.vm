@@ -41,18 +41,16 @@ public abstract class GenericDAO<T> {
 	protected abstract String getSelectAll();
 
 	/**
-	 * Returns the SQL SELECT REQUEST to be used to retrieve all the occurrences
+	 * Returns the REQUEST to be used to retrieve next id 
 	 * 
 	 * @return
 	 */
 	protected abstract String getEntity();
 
 	/**
-	 * Populates the bean attributes from the given ResultSet
+	 * calculate a redis key for given bean
 	 * 
-	 * @param rs
-	 * @param bean
-	 * @return
+	 * @return the redis key format for given bean 
 	 */
 	protected abstract String getSetValuesForId(T bean);
 
@@ -275,16 +273,19 @@ public abstract class GenericDAO<T> {
 	 * 
 	 * @return true if the good format
 	 */
-	private boolean checkId(String id) {
+     private boolean checkId(String id) {
 		String tab[] = id.split(":");
 		Integer number = null;
 		if (tab[1].equals("null") || tab[0].equals("null")) {
 			return false;
 		}
-		number = Integer.parseInt(tab[1]);
-		System.out.println(number);
+		try {
+			number = Integer.parseInt(tab[1]);
+		} catch (Exception e) {
+			throw new RuntimeException("the field id is un number");
+		}
 		String entity = tab[0].trim();
-		return (getEntity().equals(entity) && !number.equals(null));
+		return ("car".equals(entity) && number > 0);
 	}
 
 	/**
