@@ -285,7 +285,7 @@ public abstract class GenericDAO<T> {
 			throw new RuntimeException("the field id is un number");
 		}
 		String entity = tab[0].trim();
-		return ("car".equals(entity) && number > 0);
+		return (getEntity().equals(entity) && number > 0);
 	}
 
 	/**
