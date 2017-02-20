@@ -8,19 +8,19 @@
 
 	<h1>
 		<a name="tutorial-for-the-redis-telosys-bundle" class="anchor" href=""><span
-			class="octicon octicon-link"></span></a>Tutorial for the Redis Telosys bundle
+			class="octicon octicon-link"></span></a>Tutorial for the Redis Telosys
+		bundle
 	</h1>
 	<h2>
 		<a name="note" class="anchor" href="..md.html#note"><span
-			class="octicon octicon-link"></span>
-		</a>Note
+			class="octicon octicon-link"></span> </a>Note
 	</h2>
 	<p>For this tutorial, start your redis server</p>
 
 
 	<h2>
-		<a name="1-project-creation" class="anchor" href=""><span class="octicon octicon-link"></span>
-		</a>1. Project Creation
+		<a name="1-project-creation" class="anchor" href=""><span
+			class="octicon octicon-link"></span> </a>1. Project Creation
 	</h2>
 	<ul>
 		<li>You can start by create a new <strong>maven</strong> project
@@ -29,13 +29,11 @@
 		<!-- <li>The packaging of this project must be <strong>&quot;war&quot;</strong> </li> -->
 		<li><p>
 				The java <strong>compliance level must be 1.7</strong>
-			</p>
-		</li>
+			</p></li>
 	</ul>
 	<h2>
 		<a name="2-initialize-telosys-tools" class="anchor" href=""><span
-			class="octicon octicon-link"></span>
-		</a>2. Initialize Telosys Tools
+			class="octicon octicon-link"></span> </a>2. Initialize Telosys Tools
 	</h2>
 	<ul>
 		<li>Open the properties window of your project</li>
@@ -62,43 +60,53 @@
 		<li><p>
 				In the project, you should now have the <strong>&quot;redis-templates-TT3100&quot;</strong>
 				directory under <strong>&quot;TelosysTools/templates&quot;</strong>
+			</p></li>
+	</ul>
+	<h2>
+		<a name="5-generate-the-rest-api" class="anchor"
+			href="..md.html#5-generate-the-rest-api"><span
+			class="octicon octicon-link"></span></a>5. Generate the Redis Persistence
+	</h2>
+	<ul>
+		<li>Click on the <strong>&quot;code generation&quot; in the DSL interface</strong> 
+		</li>
+		<li>Select the <strong>&quot;redis-templates-TT3100&quot;</strong>
+			templates bundle in the dropdown list =&gt; all templates are now
+			visible in right list
+		</li>
+		<li>Select all templates and select <strong>&quot;copy
+				static resources&quot;</strong>
+		</li>
+		<li>Click on the <strong>&quot;Generate&quot;</strong> button
+		</li>
+		<li>You should have a successfull message</li>
+		<li><p>
+				After add the maven depedencies (next part) the project source code <strong>should compile successfully</strong>
 			</p>
 		</li>
 	</ul>
 	<h2>
-		<a name="3-update-maven-dependencies" class="anchor"
-			href=""><span
+		<a name="3-update-maven-dependencies" class="anchor" href=""><span
 			class="octicon octicon-link"></span></a>3. Update maven dependencies
 	</h2>
 	<ul>
-		<li>Under the <strong>&quot;redis-templates-TT3100&quot;</strong>
-			directory, open the <strong>maven-pom.txt</strong>
+		<li>Under the <strong>&quot;TelosysTools&quot;</strong>
+			, open the <strong>pom_persistence_redis.txt</strong>
 		</li>
 		<li>Copy and paste the dependencies to your project pom (if they
-			are not already exist)
-		</li>
+			are not already exist)</li>
 	</ul>
 	<h2>
-		<a name="4-database-repository-generation" class="anchor"
-			href="">
-			<spa class="octicon octicon-link"></span>
+		<a name="4-database-repository-generation" class="anchor" href="">
+			<spa class="octicon octicon-link">
+			</span>
 		</a>4. Redis Database Configuration
 	</h2>
 	<ul>
-		<li>Open the redis configuration file : &quot;Telosys Tools /
-			databases.dbcfg&quot;</li>
-		<li>The database editor is displayed</li>
-		<li>Add a new connection to your database</li>
-		<li>Test the connection to get &quot;Connection is OK&quot;
-		</li>
-		<li>Click on &quot;Meta-data&quot; tab, fill the schema name and
-			click on &quot;Get tables&quot; to see the tables of your database.
-		</li>
-		<li><p>If all is OK, click on &quot;Generate repository&quot;
-				button to generate a new &quot;.dbrep&quot; file in the
-				&quot;TelosysTools&quot; directory
-			</p>
-	    </li>
+		<li>Open the redis configuration file in your project : &quot;src/main/ressources/redis.properties</li>
+		<li>Put your hostname</li>
+		<li>Update the port if you use an other port</li>
+		<li>Put your password If you have some</li>
 	</ul>
 </body>
 </html>
