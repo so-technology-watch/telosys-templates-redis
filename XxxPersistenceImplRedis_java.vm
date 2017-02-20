@@ -29,7 +29,7 @@ public class ${entity.name}PersistenceImplRedis extends GenericDAO<$recordClass>
 	 * DAO constructor
 	 */
 	public ${entity.name}PersistenceImplRedis() {
-		super();
+				super(entity, ${recordClass}.class, SELECT_ALL);
 	}
 
 	/**
@@ -62,11 +62,6 @@ public class ${entity.name}PersistenceImplRedis extends GenericDAO<$recordClass>
         ${uncapitalizedEntityName}.${field.setter}(${field.name}); 
 #end
 		return $uncapitalizedEntityName;
-	}
-
-	@Override
-	protected ${recordClass} newInstance() {
-		return new ${recordClass}();
 	}
 
 	/*
@@ -200,7 +195,6 @@ public class ${entity.name}PersistenceImplRedis extends GenericDAO<$recordClass>
 		return super.doExists($uncapitalizedEntityName);
 	}
 
-	// ----------------------------------------------------------------------
 	/**
 	 * Counts all the records present in the database
 	 * 
@@ -211,15 +205,6 @@ public class ${entity.name}PersistenceImplRedis extends GenericDAO<$recordClass>
 		return super.doCountAll();
 	}
 
-    @Override
-	protected String getSelectAll() {
-		return SELECT_ALL;
-	}
-
-	@Override
-	protected String getEntity() {
-		return entity;
-	}
 	@Override
 	protected void setBeanId(${recordClass} $uncapitalizedEntityName, $fn.argumentsListWithWrapperType($keyFields)) {
 #foreach( $field in $keyFields )

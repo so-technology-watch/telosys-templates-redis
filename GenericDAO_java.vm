@@ -4,7 +4,6 @@
  */
 package ${target.javaPackageFromFolder($SRC)};
 
-import java.io.IOException;
 import java.util.ArrayList;
 import java.util.LinkedList;
 import java.util.List;
@@ -26,26 +25,19 @@ import redis.clients.jedis.exceptions.JedisException;
  */
 public abstract class GenericDAO<T> {
 
-	/**
-	 * Nom de l'instance
-	 * 
-	 * @return
-	 */
-	protected abstract T newInstance();
 
-	/**
-	 * Returns the REQUEST to be used to retrieve all the occurrences
-	 * 
-	 * @return
-	 */
-	protected abstract String getSelectAll();
+	private Class<T> type;
+	private String entity;
+	private String select_all;
+	private ObjectMapper mapper = new ObjectMapper();
+	
+    @SuppressWarnings({ "unchecked", "rawtypes" })
+	protected GenericDAO(String entity, Class type, String select_all) {
+		this.entity = entity;
+		this.type = type;
+		this.select_all = select_all;
+	}
 
-	/**
-	 * Returns the REQUEST to be used to retrieve next id 
-	 * 
-	 * @return
-	 */
-	protected abstract String getEntity();
 
 	/**
 	 * calculate a redis key for given bean
@@ -56,7 +48,6 @@ public abstract class GenericDAO<T> {
 
 	/**
 	 * Get connection to Redis
-	 * 
 	 * @return Connection to Redis by Jedis pool
 	 */
 	private JedisPool getConnection() {
@@ -72,11 +63,11 @@ public abstract class GenericDAO<T> {
 	protected T doSelect(T bean) {
 		try (Jedis jedis = getConnection().getResource()) {
 			String id = getSetValuesForId(bean);
-			if (!jedis.exists(id) || !checkId(id)) {
-				throw new RuntimeException("this id doesn't exist or check id's format");
+			if (!jedis.exists(id)) {
+				throw new RuntimeException("this id doesn't exist");
 			}
 			String beanAsJson = jedis.get(id);
-			return jsonToBean(beanAsJson);
+			return (T) mapper.readValue(beanAsJson, type);
 		} catch (Exception e) {
 			throw new RuntimeException(e);
 		}
@@ -93,7 +84,7 @@ public abstract class GenericDAO<T> {
 			List<String> keys = getAllKeys();
 			for (String key : keys) {
 				String beanAsJson = jedis.get(key);
-				T bean = jsonToBean(beanAsJson);
+				T bean = (T) mapper.readValue(beanAsJson, type);
 				list.add(bean);
 			}
 			return list;
@@ -117,10 +108,7 @@ public abstract class GenericDAO<T> {
 				setBeanId(bean, (int) nextId);
 				id = getSetValuesForId(bean);
 			}
-			if (!checkId(id)) {
-				throw new RuntimeException("check id's format");
-			}
-			String beanAsJson = beanAsJson(bean);
+			String beanAsJson = mapper.writeValueAsString(bean);
 			String result = jedis.set(id, beanAsJson);
 			return "OK".equals(result);
 		} catch (Exception e) {
@@ -137,10 +125,10 @@ public abstract class GenericDAO<T> {
 	protected boolean doInsert(T bean) {
 		try (Jedis jedis = getConnection().getResource()) {
 			String id = getSetValuesForId(bean);
-			if (jedis.exists(id) || !checkId(id)) {
-				throw new RuntimeException("this bean already exist or check id's format");
+			if (jedis.exists(id)) {
+				throw new RuntimeException("this bean already exist");
 			}
-			String beanAsJson = beanAsJson(bean);
+			String beanAsJson = mapper.writeValueAsString(bean);
 			String result = jedis.set(id, beanAsJson);
 			return "OK".equals(result);
 		} catch (Exception e) {
@@ -158,10 +146,10 @@ public abstract class GenericDAO<T> {
 	protected boolean doUpdate(T bean) {
 		try (Jedis jedis = getConnection().getResource()) {
 			String id = getSetValuesForId(bean);
-			if (!jedis.exists(id) || !checkId(id)) {
-				throw new RuntimeException("this bean doesn't exist or check id's format");
+			if (!jedis.exists(id)) {
+				throw new RuntimeException("this bean doesn't exist");
 			}
-			String beanAsJson = beanAsJson(bean);
+			String beanAsJson = mapper.writeValueAsString(bean);
 			String result = jedis.set(id, beanAsJson);
 			return "OK".equals(result);
 		} catch (Exception e) {
@@ -179,8 +167,8 @@ public abstract class GenericDAO<T> {
 	protected long doDelete(T bean) {
 		try (Jedis jedis = getConnection().getResource()) {
 			String id = getSetValuesForId(bean);
-			if (!jedis.exists(id) || !checkId(id)) {
-				throw new RuntimeException("this bean doesn't exist or check id's format");
+			if (!jedis.exists(id)) {
+				throw new RuntimeException("this bean doesn't exist");
 			}
 			return jedis.del(id);
 		} catch (JedisException e) {
@@ -209,12 +197,8 @@ public abstract class GenericDAO<T> {
 	 * @return
 	 */
 	protected int doCountAll() {
-		try (Jedis jedis = getConnection().getResource()) {
-			List<String> keys = getAllKeys();
-			return keys.size();
-		} catch (JedisException e) {
-			throw new RuntimeException(e);
-		}
+			
+		return getAllKeys().size();
 	}
 
 	/**
@@ -225,11 +209,11 @@ public abstract class GenericDAO<T> {
 	protected long autoIncr() {
 		long result = 1L;
 		try (Jedis jedis = getConnection().getResource()) {
-			if (jedis.get(getEntity()) != null) {
-				result = jedis.incr(getEntity());
+			if (jedis.get(entity) != null) {
+				result = jedis.incr(entity);
 				return result;
 			}
-			jedis.set(getEntity(), "1");
+			jedis.set(entity, "1");
 			return result;
 		} catch (JedisException e) {
 			throw new RuntimeException(e);
@@ -246,7 +230,7 @@ public abstract class GenericDAO<T> {
 	private List<String> getAllKeys() {
 		try (Jedis jedis = getConnection().getResource()) {
 			ScanParams params = new ScanParams();
-			params.match(getSelectAll());
+			params.match(select_all);
 			String cursor = redis.clients.jedis.ScanParams.SCAN_POINTER_START;
 			boolean cycleIsFinished = false;
 			List<String> results = new ArrayList<String>();
@@ -267,62 +251,6 @@ public abstract class GenericDAO<T> {
 		}
 	}
 
-	/**
-	 * 
-	 * check the id format
-	 * 
-	 * @return true if the good format
-	 */
-     private boolean checkId(String id) {
-		String tab[] = id.split(":");
-		Integer number = null;
-		if (tab[1].equals("null") || tab[0].equals("null")) {
-			return false;
-		}
-		try {
-			number = Integer.parseInt(tab[1]);
-		} catch (Exception e) {
-			throw new RuntimeException("the field id is un number");
-		}
-		String entity = tab[0].trim();
-		return (getEntity().equals(entity) && number > 0);
-	}
 
-	/**
-	 * 
-	 * serialize bean as Json format
-	 * 
-	 * @param bean
-	 * @return json format of bean
-	 */
-	private String beanAsJson(T bean) {
-		ObjectMapper mapper = new ObjectMapper();
-		try {
-			return mapper.writeValueAsString(bean);
-		} catch (IOException e) {
-			e.printStackTrace();
-		}
-		return null;
-
-	}
-
-	/**
-	 * 
-	 * deserialize bean as Json format
-	 * 
-	 * @param bean
-	 * @return json format of bean
-	 */
-	@SuppressWarnings("unchecked")
-	private T jsonToBean(String json) {
-		T bean = newInstance();
-		ObjectMapper mapper = new ObjectMapper();
-		try {
-			return (T) mapper.readValue(json, bean.getClass());
-		} catch (IOException e) {
-			e.printStackTrace();
-		}
-		return bean;
-	}
 
 }

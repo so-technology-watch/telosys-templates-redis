@@ -10,7 +10,6 @@ import redis.clients.jedis.JedisPool;
 import redis.clients.jedis.JedisPoolConfig;
 import redis.clients.jedis.Protocol;
 
-
 public class ClientProvider {
 
 	/**
@@ -45,7 +44,7 @@ public class ClientProvider {
 	 * Loads the REDIS properties using the class-path to find the file<br>
 	 * 
 	 * @throws RuntimeException
-	 * if the properties file cannot be found
+	 *             if the properties file cannot be found
 	 * @return
 	 */
 	public static Properties loadJdbcPropertiesFromClassPath() {
@@ -59,8 +58,16 @@ public class ClientProvider {
 	 */
 	private static JedisPool createJedisClient() {
 		Properties env = loadJdbcPropertiesFromClassPath();
-		JedisPool pool = new JedisPool(new JedisPoolConfig(), env.getProperty("redis.hostname"));
-		return pool;
+		if(!env.getProperty("redis.password").equals("") && !env.getProperty("redis.port").equals("")){
+		return  new JedisPool(new JedisPoolConfig(), env.getProperty("redis.hostname"),
+				Integer.parseInt(env.getProperty("redis.port")),  Protocol.DEFAULT_TIMEOUT, env.getProperty("redis.password"));
+		}
+		else if(!env.getProperty("redis.port").equals("")){
+		return new JedisPool(new JedisPoolConfig(), env.getProperty("redis.hostname"),
+				Integer.parseInt(env.getProperty("redis.port")));
+		}
+		return new JedisPool(new JedisPoolConfig(), env.getProperty("redis.hostname"));
+		
 	}
 
 	private static Properties loadPropertiesFromClassPath(String fileName) {
