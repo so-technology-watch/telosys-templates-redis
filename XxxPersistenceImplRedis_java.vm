@@ -22,14 +22,11 @@ import ${ROOT_PKG}.persistence.${entity.name}Persistence;
 @Named("${entity.name}Persistence")
 public class ${entity.name}PersistenceImplRedis extends GenericDAO<$recordClass> implements ${entity.name}Persistence {
 
-    private final static String SELECT_ALL = "$uncapitalizedEntityName:*";
-    private final static String entity = "$uncapitalizedEntityName";
-
 	/**
 	 * DAO constructor
 	 */
 	public ${entity.name}PersistenceImplRedis() {
-				super(entity, ${recordClass}.class, SELECT_ALL);
+				super("$uncapitalizedEntityName", ${recordClass}.class);
 	}
 
 	/**
@@ -39,16 +36,12 @@ public class ${entity.name}PersistenceImplRedis extends GenericDAO<$recordClass>
 	 * @return key  with a good format
 	 */
 	@Override
-	protected String getSetValuesForId(${recordClass} bean) {
-		if (bean != null) {
+	protected String getKey(${recordClass} bean) {
 #foreach( $field in $keyFields )
 #set( $get = ${field.getter}) 
 #end
 			return "$uncapitalizedEntityName:" + bean.$get();
-		}
-		return "";
 	}
-
 	/**
 	 * Creates a new instance of the bean
 	 * primary value(s)
@@ -176,7 +169,6 @@ public class ${entity.name}PersistenceImplRedis extends GenericDAO<$recordClass>
 	 
 	 * @return
 	 */
-	// @Override
 	public boolean exists($fn.argumentsListWithWrapperType($keyFields)) {
 #foreach( $field in $keyFields )
 		${recordClass} $uncapitalizedEntityName = newInstanceWithPrimaryKey($field.name);
@@ -190,7 +182,6 @@ public class ${entity.name}PersistenceImplRedis extends GenericDAO<$recordClass>
 	
 	 * @return
 	 */
-	// @Override
 	public boolean exists(${recordClass} $uncapitalizedEntityName) {
 		return super.doExists($uncapitalizedEntityName);
 	}
@@ -200,7 +191,6 @@ public class ${entity.name}PersistenceImplRedis extends GenericDAO<$recordClass>
 	 * 
 	 * @return
 	 */
-	// @Override
 	public long count() {
 		return super.doCountAll();
 	}
