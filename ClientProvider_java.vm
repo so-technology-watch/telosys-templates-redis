@@ -39,7 +39,7 @@ public class ClientProvider {
 	 * 
 	 * @return name of properties file
 	 */
-	public static String getJdbcPrpertiesFileName() {
+	public static String getRedisPrpertiesFileName() {
 		return REDIS_PROPERTIES_FILE_NAME;
 	}
 
@@ -49,7 +49,7 @@ public class ClientProvider {
 	 * @throws RuntimeException
 	 * @return properties file
 	 */
-	public static Properties loadJdbcPropertiesFromClassPath() {
+	public static Properties loadRedisPropertiesFromClassPath() {
 		return loadPropertiesFromClassPath(REDIS_PROPERTIES_FILE_NAME);
 	}
 
@@ -59,7 +59,7 @@ public class ClientProvider {
 	 * @return new JedisPool
 	 */
 	private static JedisPool createJedisClient() {
-		Properties env = loadJdbcPropertiesFromClassPath();
+		Properties env = loadRedisPropertiesFromClassPath();
 		String stringPort = env.getProperty(PORT);
 		String password = env.getProperty(PASSWORD);
 		String host = env.getProperty(HOST);
@@ -85,4 +85,5 @@ public class ClientProvider {
 			throw new RuntimeException("Cannot found '" + fileName + "' (InputStream is null)");
 		}
 	}
+
 }
