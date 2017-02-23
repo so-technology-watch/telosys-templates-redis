@@ -40,7 +40,7 @@ public class ${entity.name}PersistenceImplRedis extends GenericDAO<$recordClass>
 #foreach( $field in $keyFields )
 #set( $get = ${field.getter}) 
 #end
-			return "$uncapitalizedEntityName:" + bean.$get();
+			return bean.$get();
 	}
 	/**
 	 * Creates a new instance of the bean
