@@ -25,7 +25,7 @@ public class $entity.name implements Serializable
 #foreach( $field in $entity.keyAttributes )
 ## $beanValidation.annotations(4,$field)
 #if(!$field.isAutoIncremented())
-##$beanValidation.annotationsForWrapperType(4,$field)
+$beanValidation.annotationsForWrapperType(4,$field)
 #end
 
     private $field.wrapperType $field.name ; // $field.type // Id or Primary Key
