@@ -4,7 +4,8 @@
 ##--------------------------------------------------------------------------------------------------------
 #set( $recordClass = "${entity.name}Record" )
 #set( $uncapitalizedEntityName = $fn.uncapitalize($entity.name) )
-#set ( $keyFields = $entity.keyAttributes ) 
+#set ( $keyFields = $entity.keyAttributes )
+#set($end =  $entity.keyAttributesCount)
 ##--------------------------------------------------------------------------------------------------------
 package ${target.javaPackageFromFolder($SRC)};
 import java.util.List;
@@ -26,9 +27,8 @@ public class ${entity.name}PersistenceImplRedis extends GenericDAO<$recordClass>
 	 * DAO constructor
 	 */
 	public ${entity.name}PersistenceImplRedis() {
-				super("$uncapitalizedEntityName", ${recordClass}.class);
+		super("$uncapitalizedEntityName", ${recordClass}.class);
 	}
-
 	/**
 	 * make key in a good format
 	 * 
@@ -37,10 +37,7 @@ public class ${entity.name}PersistenceImplRedis extends GenericDAO<$recordClass>
 	 */
 	@Override
 	protected String getKey(${recordClass} bean) {
-#foreach( $field in $keyFields )
-#set( $get = ${field.getter}) 
-#end
-			return bean.$get().toString();
+		return buildString($fn.argumentsListWithGetter('bean', $keyFields));
 	}
 	/**
 	 * Creates a new instance of the bean
@@ -63,10 +60,7 @@ public class ${entity.name}PersistenceImplRedis extends GenericDAO<$recordClass>
 	 * @see interface
 	 */
 	public ${recordClass} findById($fn.argumentsListWithWrapperType($keyFields)){
-#foreach( $field in $keyFields )
-        ${recordClass}  $uncapitalizedEntityName = newInstanceWithPrimaryKey(${field.name});
-#end
-	
+        ${recordClass}  $uncapitalizedEntityName = newInstanceWithPrimaryKey($fn.argumentsList($keyFields));
 		return super.doSelect($uncapitalizedEntityName);
 	}
 
@@ -76,7 +70,6 @@ public class ${entity.name}PersistenceImplRedis extends GenericDAO<$recordClass>
 	 * @see interface
 	 */
 	public List<${recordClass}> findAll() {
-	
 		return super.doSelectAll();
 	}
 
@@ -96,15 +89,14 @@ public class ${entity.name}PersistenceImplRedis extends GenericDAO<$recordClass>
 	 * 
 	 */
 	public boolean insert(${recordClass} $uncapitalizedEntityName){
-#foreach( $field in $keyFields )
-#if ($field.isAutoIncremented())
-    if(${uncapitalizedEntityName}.${field.getter}() != null)
+#if($entity.hasCompositePrimaryKey() || !$entity.hasAutoIncrementedKey())
+		return super.doInsert($uncapitalizedEntityName);
+#else
+
+   if(${uncapitalizedEntityName}.${entity.keyAttribute.getter}() != null)
 		return super.doInsert($uncapitalizedEntityName);
     else
 		return super.doInsertIncr($uncapitalizedEntityName);
-#else
-		return super.doInsert($uncapitalizedEntityName);
-#end
 #end
 	}
 
@@ -146,9 +138,7 @@ public class ${entity.name}PersistenceImplRedis extends GenericDAO<$recordClass>
 	 * @see interface
 	 */
 	public boolean deleteById($fn.argumentsListWithWrapperType($keyFields)) {
-#foreach( $field in $keyFields )
-		${recordClass} $uncapitalizedEntityName = newInstanceWithPrimaryKey($field.name);
-#end
+		${recordClass} $uncapitalizedEntityName = newInstanceWithPrimaryKey($fn.argumentsList($keyFields));
 		long r = super.doDelete($uncapitalizedEntityName);
 		return r > 0L;
 	}
@@ -170,10 +160,7 @@ public class ${entity.name}PersistenceImplRedis extends GenericDAO<$recordClass>
 	 * @return
 	 */
 	public boolean exists($fn.argumentsListWithWrapperType($keyFields)) {
-#foreach( $field in $keyFields )
-		${recordClass} $uncapitalizedEntityName = newInstanceWithPrimaryKey($field.name);
-#end
-		
+		${recordClass} $uncapitalizedEntityName = newInstanceWithPrimaryKey($fn.argumentsList($keyFields));
 		return super.doExists($uncapitalizedEntityName);
 	}
 
@@ -194,14 +181,4 @@ public class ${entity.name}PersistenceImplRedis extends GenericDAO<$recordClass>
 	public long count() {
 		return super.doCountAll();
 	}
-
-	@Override
-	protected void setBeanId(${recordClass} $uncapitalizedEntityName, $fn.argumentsListWithWrapperType($keyFields)) {
-#foreach( $field in $keyFields )
-			${uncapitalizedEntityName}.${field.setter}((int) $field.name);
-#end
-	}
-
-
-
 }

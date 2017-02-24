@@ -97,12 +97,10 @@ public abstract class GenericDAO<T> {
 	protected boolean doInsertIncr(T bean) {
 		try (Jedis jedis = getConnection().getResource()) {
 			long nextId = autoIncr();
-			setBeanId(bean, (int) nextId);
-			String key = entity+SEPARATOR+getKey(bean);
+			String key = entity+SEPARATOR+String.valueOf(nextId);
 			while (jedis.exists(key)) {
 				nextId = autoIncr();
-				setBeanId(bean, (int) nextId);
-				key = entity+SEPARATOR+getKey(bean);
+				key = entity+SEPARATOR+String.valueOf(nextId);
 			}
 			String result = jedis.set(key, mapper.writeValueAsString(bean), NX);
 			return "OK".equals(result);
@@ -205,9 +203,6 @@ public abstract class GenericDAO<T> {
 			throw new RuntimeException(e);
 		}
 	}
-
-	protected abstract void setBeanId(T bean, Integer id);
-
 	/**
 	 * Returns all keys existing in the database
 	 * 
@@ -236,5 +231,15 @@ public abstract class GenericDAO<T> {
 		} catch (Exception e) {
 			throw new RuntimeException(e);
 		}
+	}
+
+	protected String buildString( Object ... args ) {
+		StringBuilder sb = new StringBuilder();
+		sb.append(args[0].toString());
+		
+		for (int i = 1; i < args.length; i++) {
+			sb.append("|").append(args[i].toString());
+		}
+		return sb.toString();
 	}
 }
